@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="stage_ros" type="stageros" name="stageros" args="$(find stage_ros)/world/willow-erratic.world" respawn="false" >
+  </node>
+</launch>
