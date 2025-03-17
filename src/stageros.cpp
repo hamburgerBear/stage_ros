@@ -184,10 +184,9 @@ const char* StageNode::mapName(const char* name, size_t robotID,
     std::size_t found = std::string(((Stg::Ancestor*)mod)->Token()).find(":");
 
     if ((found == std::string::npos) && umn) {
-      snprintf(buf, sizeof(buf), "/%s/%s", ((Stg::Ancestor*)mod)->Token(),
-               name);
+      snprintf(buf, sizeof(buf), "%s/%s", ((Stg::Ancestor*)mod)->Token(), name);
     } else {
-      snprintf(buf, sizeof(buf), "/robot_%u/%s", (unsigned int)robotID, name);
+      snprintf(buf, sizeof(buf), "robot_%u/%s", (unsigned int)robotID, name);
     }
 
     return buf;
@@ -205,17 +204,17 @@ const char* StageNode::mapName(const char* name, size_t robotID,
     std::size_t found = std::string(((Stg::Ancestor*)mod)->Token()).find(":");
 
     if ((found == std::string::npos) && umn) {
-      snprintf(buf, sizeof(buf), "/%s/%s_%u", ((Stg::Ancestor*)mod)->Token(),
+      snprintf(buf, sizeof(buf), "%s/%s_%u", ((Stg::Ancestor*)mod)->Token(),
                name, (unsigned int)deviceID);
     } else {
-      snprintf(buf, sizeof(buf), "/robot_%u/%s_%u", (unsigned int)robotID, name,
+      snprintf(buf, sizeof(buf), "robot_%u/%s_%u", (unsigned int)robotID, name,
                (unsigned int)deviceID);
     }
 
     return buf;
   } else {
     static char buf[100];
-    snprintf(buf, sizeof(buf), "/%s_%u", name, (unsigned int)deviceID);
+    snprintf(buf, sizeof(buf), "%s_%u", name, (unsigned int)deviceID);
     return buf;
   }
 }
@@ -261,8 +260,10 @@ void StageNode::cmdvelReceived(
 StageNode::StageNode(int argc, char** argv, bool gui, const char* fname,
                      bool use_model_names) {
   this->use_model_names = use_model_names;
-  this->sim_time.fromSec(0.0);
-  this->base_last_cmd.fromSec(0.0);
+  // this->sim_time.fromSec(0.0);
+  // this->base_last_cmd.fromSec(0.0);
+  this->sim_time = ros::Time::now();
+  this->base_last_cmd = ros::Time::now();
   double t;
   ros::NodeHandle localn("~");
   if (!localn.getParam("base_watchdog_timeout", t)) t = 0.2;
@@ -305,7 +306,7 @@ StageNode::StageNode(int argc, char** argv, bool gui, const char* fname,
 // Eventually, we should provide a general way to map stage models onto ROS
 // topics, similar to Player .cfg files.
 int StageNode::SubscribeModels() {
-  n_.setParam("/use_sim_time", true);
+  n_.setParam("/use_sim_time", false);
 
   for (size_t r = 0; r < this->positionmodels.size(); r++) {
     StageRobot* new_robot = new StageRobot;
@@ -347,6 +348,7 @@ int StageNode::SubscribeModels() {
       }
     }
     
+    // TODO - print the topic names nicely as well
     ROS_INFO("Robot %s provided %lu rangers and %lu cameras and %lu bumpers",
              new_robot->positionmodel->Token(), new_robot->lasermodels.size(),
              new_robot->cameramodels.size(), new_robot->bumpermodels.size());
@@ -437,7 +439,10 @@ void StageNode::WorldCallback() {
 
   boost::mutex::scoped_lock lock(msg_lock);
 
-  this->sim_time.fromSec(world->SimTimeNow() / 1e6);
+  this->sim_time = ros::Time::now();
+  //将仿真时间修改为系统时间
+  // this->sim_time.fromSec(world->SimTimeNow() / 1e6);
+
   // We're not allowed to publish clock==0, because it used as a special
   // value in parts of ROS, #4027.
   if (this->sim_time.sec == 0 && this->sim_time.nsec == 0) {
@@ -520,7 +525,7 @@ void StageNode::WorldCallback() {
             txLaser, sim_time,
             mapName("base_link", r,
                     static_cast<Stg::Model*>(robotmodel->positionmodel)),
-            mapName("base_laser_link", r,
+            mapName("base_laser_link", r, s,
                     static_cast<Stg::Model*>(robotmodel->positionmodel))));
     }
 
