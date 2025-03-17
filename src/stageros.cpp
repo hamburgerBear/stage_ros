@@ -44,6 +44,7 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/image_encodings.h>
+#include <std_msgs/ByteMultiArray.h>
 #include <std_srvs/Empty.h>
 
 #include <boost/thread/mutex.hpp>
@@ -55,6 +56,7 @@
 #define IMAGE "image"
 #define DEPTH "depth"
 #define CAMERA_INFO "camera_info"
+#define BUMP "bump"
 #define ODOM "odom"
 #define BASE_SCAN "base_scan"
 #define BASE_POSE_GROUND_TRUTH "base_pose_ground_truth"
@@ -73,6 +75,7 @@ class StageNode {
   std::vector<Stg::ModelCamera*> cameramodels;
   std::vector<Stg::ModelRanger*> lasermodels;
   std::vector<Stg::ModelPosition*> positionmodels;
+  std::vector<Stg::ModelBumper*> bumpermodels;
 
   // a structure representing a robot inthe simulator
   struct StageRobot {
@@ -82,6 +85,7 @@ class StageNode {
         cameramodels;  // multiple cameras per position
     std::vector<Stg::ModelRanger*> lasermodels;  // multiple rangers per
                                                  // position
+    std::vector<Stg::ModelBumper*> bumpermodels;
 
     // ros publishers
     ros::Publisher odom_pub;          // one odom
@@ -91,6 +95,7 @@ class StageNode {
     std::vector<ros::Publisher> depth_pubs;   // multiple depths
     std::vector<ros::Publisher> camera_pubs;  // multiple cameras
     std::vector<ros::Publisher> laser_pubs;   // multiple lasers
+    ros::Publisher bumper_pub;                // single bumper
 
     ros::Subscriber cmdvel_sub;  // one cmd_vel subscriber
   };
@@ -230,6 +235,9 @@ void StageNode::ghfunc(Stg::Model* mod, StageNode* node) {
   if (dynamic_cast<Stg::ModelCamera*>(mod)) {
     node->cameramodels.push_back(dynamic_cast<Stg::ModelCamera*>(mod));
   }
+  if (dynamic_cast<Stg::ModelBumper*>(mod)) {
+    node->bumpermodels.push_back(dynamic_cast<Stg::ModelBumper*>(mod));
+  }
 }
 
 bool StageNode::cb_reset_srv(std_srvs::Empty::Request& request,
@@ -328,10 +336,20 @@ int StageNode::SubscribeModels() {
       }
     }
 
-    // TODO - print the topic names nicely as well
-    ROS_INFO("Robot %s provided %lu rangers and %lu cameras",
+    for (size_t s = 0; s < this->bumpermodels.size(); s++) {
+      if (this->bumpermodels[s] and
+          this->bumpermodels[s]->Parent() == new_robot->positionmodel) {
+        new_robot->bumpermodels.push_back(this->bumpermodels[s]);
+        this->bumpermodels[s]->Subscribe();
+
+        ROS_INFO("subscribed to Stage bumper model \"%s\"",
+                 this->bumpermodels[s]->Token());
+      }
+    }
+    
+    ROS_INFO("Robot %s provided %lu rangers and %lu cameras and %lu bumpers",
              new_robot->positionmodel->Token(), new_robot->lasermodels.size(),
-             new_robot->cameramodels.size());
+             new_robot->cameramodels.size(), new_robot->bumpermodels.size());
 
     new_robot->odom_pub = n_.advertise<nav_msgs::Odometry>(
         mapName(ODOM, r, static_cast<Stg::Model*>(new_robot->positionmodel)),
@@ -386,6 +404,10 @@ int StageNode::SubscribeModels() {
             10));
       }
     }
+
+    new_robot->bumper_pub = n_.advertise<std_msgs::ByteMultiArray>(
+        mapName(BUMP, r, static_cast<Stg::Model*>(new_robot->positionmodel)),
+        10);
 
     this->robotmodels_.push_back(new_robot);
   }
@@ -501,6 +523,27 @@ void StageNode::WorldCallback() {
             mapName("base_laser_link", r,
                     static_cast<Stg::Model*>(robotmodel->positionmodel))));
     }
+
+    // loop on the bumper devices for the current robot
+    std_msgs::ByteMultiArray msg;
+    for (size_t s = 0; s < robotmodel->bumpermodels.size(); ++s) {
+      /* 用法: 参考Stage/libstageplugin/p_bumper.cc*/
+      Stg::ModelBumper const* bumpermodel = robotmodel->bumpermodels[s];
+      if (bumpermodel->samples == NULL) {
+        return;
+      }
+
+      Stg::ModelBumper::BumperSample* sdata =
+          (Stg::ModelBumper::BumperSample*)bumpermodel->samples;
+      int bumper_count = bumpermodel->bumper_count;
+      bool hit = false;
+      for (int i = 0; i < (int)bumper_count; i++) {
+        hit |= sdata[i].hit ? 1 : 0;
+      }
+      msg.data.push_back(hit);
+    }
+    // left leftfront front rightfront right
+    robotmodel->bumper_pub.publish(msg);
 
     // the position of the robot
     tf.sendTransform(tf::StampedTransform(
