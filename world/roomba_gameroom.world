@@ -1,0 +1,63 @@
+# Desc: Sample Stage world file with a simulated Roomba, based on simple.world
+# Author:  Rich Mattes
+# Date: 12 December 2012
+
+include "irobot.inc"
+include "map.inc"
+include "sick.inc"
+include "room_chair_models.inc"
+include "room_wall_models.inc"
+
+# time to pause (in GUI mode) or quit (in headless mode (-g)) the simulation
+quit_time 3600 # 1 hour of simulated time
+
+paused 0
+
+resolution 0.01
+interval_sim 100
+
+# configure the GUI window
+window
+(
+  #size [ 635.000 666.000 ] # in pixels
+  #scale 36.995   # pixels per meter
+  center [ 6.634  -5.835 ]
+  rotate [ 0.000  0.000 ]
+        
+  show_data 1              # 1=on 0=off
+)
+
+# load an environment bitmap
+floorplan
+( 
+  name "cave"
+  size [84.1 49.5 0.800]
+  pose [0.000 0.000 0.000 0.000]
+  bitmap "bitmaps/japan_game.png"
+)
+
+
+#chairBase1(pose [ 0.000 0.000 0.000 0.000 ])
+#chairBase2(pose [ 1.000 0.000 0.000 0.000 ])
+#chairBase3(pose [ 5.499 -3.901 0.000 17.189 ])
+#chair1(pose [ 5.847 -3.798 0.000 0.000 ])
+#chair2(pose [ 4.000 0.000 0.000 0.000 ])
+#chair3(pose [ 6.815 -6.097 0.000 131.781 ])
+#chair4(pose [ 6.134 0.203 0.000 -80.214 ])
+#wall1(pose [ 4.512 4.090 0.000 -0.963 ])
+
+roomba
+(
+  boundary 1
+  # can refer to the robot by this name
+  name "r0"
+  pose [ 7.107 -5.947 0.000 1.390 ] 
+  sicklaser( 
+    pose [ 0.000 0.000 0.000 0.000 ] 
+    color "red"
+  ) 
+
+  # report error-free position in world coordinates
+  localization "gps"
+  localization_origin [ 0 0 0 0 ] 
+)

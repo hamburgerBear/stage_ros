@@ -347,7 +347,7 @@ int StageNode::SubscribeModels() {
                  this->bumpermodels[s]->Token());
       }
     }
-    
+
     // TODO - print the topic names nicely as well
     ROS_INFO("Robot %s provided %lu rangers and %lu cameras and %lu bumpers",
              new_robot->positionmodel->Token(), new_robot->lasermodels.size(),
@@ -624,10 +624,27 @@ void StageNode::WorldCallback() {
     ground_truth_msg.twist.twist.angular.z = gvel.a;
 
     ground_truth_msg.header.frame_id =
-        mapName("odom", r, static_cast<Stg::Model*>(robotmodel->positionmodel));
+        mapName("map", r, static_cast<Stg::Model*>(robotmodel->positionmodel));
     ground_truth_msg.header.stamp = sim_time;
 
     robotmodel->ground_truth_pub.publish(ground_truth_msg);
+
+    // broadcast gps transform
+    tf::Quaternion mapQ;
+    tf::quaternionMsgToTF(ground_truth_msg.pose.pose.orientation, mapQ);
+    tf::Transform txMap(mapQ,
+                        tf::Point(ground_truth_msg.pose.pose.position.x,
+                                  ground_truth_msg.pose.pose.position.y, 0.0));
+
+    tf::Transform map_to_odom, map_to_baselink, odom_to_baselink;
+    odom_to_baselink = txOdom;
+    map_to_baselink = txMap;
+    map_to_odom = map_to_baselink * odom_to_baselink.inverse();
+    tf.sendTransform(tf::StampedTransform(
+        map_to_odom, sim_time,
+        mapName("map", r, static_cast<Stg::Model*>(robotmodel->positionmodel)),
+        mapName("odom", r,
+                static_cast<Stg::Model*>(robotmodel->positionmodel))));
 
     // cameras
     for (size_t s = 0; s < robotmodel->cameramodels.size(); ++s) {
@@ -783,8 +800,9 @@ void StageNode::WorldCallback() {
         double fovh = cameramodel->getCamera().horizFov() * M_PI / 180.0;
         double fovv = cameramodel->getCamera().vertFov() * M_PI / 180.0;
         // double fx_
-        // = 1.43266615300557*this->cameramodels[r]->getWidth()/tan(fovh); double
-        // fy_ = 1.43266615300557*this->cameramodels[r]->getHeight()/tan(fovv);
+        // = 1.43266615300557*this->cameramodels[r]->getWidth()/tan(fovh);
+        // double fy_
+        // = 1.43266615300557*this->cameramodels[r]->getHeight()/tan(fovv);
         fx = cameramodel->getWidth() / (2 * tan(fovh / 2));
         fy = cameramodel->getHeight() / (2 * tan(fovv / 2));
 
