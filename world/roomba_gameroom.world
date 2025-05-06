@@ -37,7 +37,7 @@ floorplan
 )
 
 
-#chairBase1(pose [ 0.000 0.000 0.000 0.000 ])
+chairBase1(pose [ 0.000 0.000 0.000 0.000 ])
 #chairBase2(pose [ 1.000 0.000 0.000 0.000 ])
 #chairBase3(pose [ 5.499 -3.901 0.000 17.189 ])
 #chair1(pose [ 5.847 -3.798 0.000 0.000 ])

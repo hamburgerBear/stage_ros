@@ -494,10 +494,11 @@ void StageNode::WorldCallback() {
           msg.header.frame_id =
               mapName("base_laser_link", r, s,
                       static_cast<Stg::Model*>(robotmodel->positionmodel));
-        else
+        else {
           msg.header.frame_id =
               mapName("base_laser_link", r,
                       static_cast<Stg::Model*>(robotmodel->positionmodel));
+        }
 
         msg.header.stamp = sim_time;
         robotmodel->laser_pubs[s].publish(msg);
@@ -525,7 +526,7 @@ void StageNode::WorldCallback() {
             txLaser, sim_time,
             mapName("base_link", r,
                     static_cast<Stg::Model*>(robotmodel->positionmodel)),
-            mapName("base_laser_link", r, s,
+            mapName("base_laser_link", r,  // check this ???
                     static_cast<Stg::Model*>(robotmodel->positionmodel))));
     }
 
